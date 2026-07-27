@@ -5,15 +5,15 @@ class Config(object):
     # A name for users - Required (str)
     BOT_NAME_FOR_USERS = "Video Downloader bot"
     # Add all admin id's as a list - Required (lst[int])
-    ADMIN = [1129585178]
+    ADMIN = [8261666607]
     # Add your telegram API ID - Required (int)
-    API_ID = 1129585178
+    API_ID = 0
     # Add your Telegram API HASH - Required (str)
-    API_HASH = "eb06d4abfb49dc3eeb1aeb98ae0f581e"
+    API_HASH = ""
     # Add your telegram bot token (str)
-    BOT_TOKEN = "7672806823:AAHRBiGkwISn9gxILQTqXu7crESeWwU9fAw"
+    BOT_TOKEN = "8707409862:AAFEfJxi8sXmCdg1Uy9Nb-R4qBMFSzl83Rw"
     # Add telegram Log channel Id - Required (int)
-    LOGS_ID = 1129585178
+    LOGS_ID = 8261666607
 
     # Cookie file URL
     # EX: "https://path/to/your/cookie-file.txt"
@@ -69,14 +69,6 @@ class Config(object):
     # your firebase DB path
     BOT_DB_PATH = f"bot/{BOT_NAME}/"
     # Firebase Config - Required (str for all)
-    FIREBASE_USER = "020alievib@gmail.com"
-    FIREBASE_PASSWORD = "Monoteist095"
-    FIREBASE_CONF = {
-      'apiKey': "AIzaSyCxcZVsW6wDtBDTLRaQZyf63rmjBwrEMdQ",
-      'authDomain': "private-project-aff11.firebaseapp.com",
-      'projectId': "private-project-aff11",
-      'storageBucket': "private-project-aff11.firebasestorage.app",
-      'messagingSenderId': "302587259853",
-      'appId': "1:302587259853:web:1e4de30bbed2760abfb284",
-      'databaseURL': "https://private-project-aff11-default-rtdb.europe-west1.firebaseio.com"
-    } 
+    FIREBASE_USER = ""
+    FIREBASE_PASSWORD = ""
+    FIREBASE_CONF = {} 
