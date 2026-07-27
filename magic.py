@@ -68,99 +68,65 @@ def check_disk_space(path, required_bytes):
         return True
 
 # Firebase Initialization with Authentication
-firebase = pyrebase.initialize_app(Config.FIREBASE_CONF)
-
-# Create auth object from pyrebase
-auth = firebase.auth()
-
-# Sign in using email and password (ensure these credentials are set in your Config)
-try:
-    user = auth.sign_in_with_email_and_password(Config.FIREBASE_USER, Config.FIREBASE_PASSWORD)
-    # Debug: Print essential details of the user object
-    logger.info("User signed in successfully.")
-    logger.info(f"User email: {user.get('email')}")
-    logger.info(f"User localId: {user.get('localId')}")
-    # If available, check email verification status
-    if "emailVerified" in user:
-        logger.info(f"Email verified: {user['emailVerified']}")
-    else:
-        logger.info("Email verification status not available in user object.")
-except Exception as e:
-    logger.error(f"Error during Firebase authentication: {e}")
-    raise
-
-# Debug: Print a portion of idToken
-idToken = user.get("idToken")
-if idToken:
-    logger.info(f"Firebase idToken (first 20 chars): {idToken[:20]}")
+# Проверяем, есть ли Firebase конфиг. Если нет — работаем без него.
+if Config.FIREBASE_CONF and Config.FIREBASE_USER and Config.FIREBASE_PASSWORD:
+    firebase = pyrebase.initialize_app(Config.FIREBASE_CONF)
+    auth = firebase.auth()
+    try:
+        user = auth.sign_in_with_email_and_password(Config.FIREBASE_USER, Config.FIREBASE_PASSWORD)
+        logger.info("User signed in successfully.")
+        idToken = user.get("idToken")
+        logger.info(f"Firebase idToken (first 20 chars): {idToken[:20]}")
+    except Exception as e:
+        logger.error(f"Error during Firebase authentication: {e}")
+        idToken = None
 else:
-    logger.error("No idToken received!")
-    raise Exception("idToken is empty.")
+    logger.info("Firebase credentials not configured — running without Firebase.")
+    idToken = None
 
-# Get the base database object
-base_db = firebase.database()
-
-# Additional check: Execute a test GET request to the root node
-try:
-    test_data = base_db.get(idToken)
-    logger.info("Test GET operation succeeded. Data:", test_data.val())
-except Exception as e:
-    logger.error("Test GET operation failed:", e)
-
-# Define a wrapper class to automatically pass the idToken for all database operations
-class AuthedDB:
-    def __init__(self, db, token):
-        self.db = db
-        self.token = token
-
-    def child(self, path):
-        return AuthedDB(self.db.child(path), self.token)
-
-    def set(self, data, *args, **kwargs):
-        return self.db.set(data, self.token, *args, **kwargs)
-
-    def get(self, *args, **kwargs):
-        return self.db.get(self.token, *args, **kwargs)
-
-    def push(self, data, *args, **kwargs):
-        return self.db.push(data, self.token, *args, **kwargs)
-
-    def update(self, data, *args, **kwargs):
-        return self.db.update(data, self.token, *args, **kwargs)
-
-    def remove(self, *args, **kwargs):
-        return self.db.remove(self.token, *args, **kwargs)
-
-# Let's use the rstrip() method directly in the f-string to form the correct path
-db = AuthedDB(base_db, user["idToken"])
-db_path = Config.BOT_DB_PATH.rstrip("/")
-_format = {"ID": "0", "timestamp": math.floor(time.time())}
-try:
-    # Try writing data to the path: bot/tgytdlp_bot/users/0
-    result = db.child(f"{db_path}/users/0").set(_format)
-    logger.info("Data written successfully. Result:", result)
-except Exception as e:
-    logger.error("Error writing data to Firebase:", e)
-    raise
-
-# Function to periodically refresh the idToken using the refreshToken
-def token_refresher():
-    global db, user
-    while True:
-        # Sleep for 50 minutes (3000 seconds)
-        time.sleep(3000)
-        try:
-            new_user = auth.refresh(user["refreshToken"])
-            new_idToken = new_user["idToken"]
-            db.token = new_idToken
-            user = new_user
-            logger.info("Firebase idToken refreshed successfully. New token (first 20 chars):", new_idToken[:20])
-        except Exception as e:
-            logger.error("Error refreshing Firebase idToken:", e)
-
-# Start the token refresher thread as a daemon
-token_thread = threading.Thread(target=token_refresher, daemon=True)
-token_thread.start()
+# Если Firebase подключена — создаём обёртку для базы данных
+if idToken:
+    base_db = firebase.database()
+    class AuthedDB:
+        def __init__(self, db, token):
+            self.db = db
+            self.token = token
+        def child(self, path):
+            return AuthedDB(self.db.child(path), self.token)
+        def set(self, data, *args, **kwargs):
+            return self.db.set(data, self.token, *args, **kwargs)
+        def get(self, *args, **kwargs):
+            return self.db.get(self.token, *args, **kwargs)
+        def push(self, data, *args, **kwargs):
+            return self.db.push(data, self.token, *args, **kwargs)
+        def update(self, data, *args, **kwargs):
+            return self.db.update(data, self.token, *args, **kwargs)
+        def remove(self, *args, **kwargs):
+            return self.db.remove(self.token, *args, **kwargs)
+    db = AuthedDB(base_db, idToken)
+    db_path = Config.BOT_DB_PATH.rstrip("/")
+    _format = {"ID": "0", "timestamp": math.floor(time.time())}
+    try:
+        result = db.child(f"{db_path}/users/0").set(_format)
+        logger.info("Data written successfully. Result:", result)
+    except Exception as e:
+        logger.error("Error writing data to Firebase:", e)
+    def token_refresher():
+        global db, user
+        while True:
+            time.sleep(3000)
+            try:
+                new_user = auth.refresh(user["refreshToken"])
+                new_idToken = new_user["idToken"]
+                db.token = new_idToken
+                user = new_user
+                logger.info("Firebase idToken refreshed successfully.")
+            except Exception as e:
+                logger.error("Error refreshing Firebase idToken:", e)
+    token_thread = threading.Thread(target=token_refresher, daemon=True)
+    token_thread.start()
+else:
+    logger.warning("Firebase disabled. Some admin/stat commands may not work.")
 
 ################################################################################################
 
