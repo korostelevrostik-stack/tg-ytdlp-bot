@@ -67,66 +67,9 @@ def check_disk_space(path, required_bytes):
         # If we can't check, assume there's enough space
         return True
 
-# Firebase Initialization with Authentication
-# Проверяем, есть ли Firebase конфиг. Если нет — работаем без него.
-if Config.FIREBASE_CONF and Config.FIREBASE_USER and Config.FIREBASE_PASSWORD:
-    firebase = pyrebase.initialize_app(Config.FIREBASE_CONF)
-    auth = firebase.auth()
-    try:
-        user = auth.sign_in_with_email_and_password(Config.FIREBASE_USER, Config.FIREBASE_PASSWORD)
-        logger.info("User signed in successfully.")
-        idToken = user.get("idToken")
-        logger.info(f"Firebase idToken (first 20 chars): {idToken[:20]}")
-    except Exception as e:
-        logger.error(f"Error during Firebase authentication: {e}")
-        idToken = None
-else:
-    logger.info("Firebase credentials not configured — running without Firebase.")
-    idToken = None
-
-# Если Firebase подключена — создаём обёртку для базы данных
-if idToken:
-    base_db = firebase.database()
-    class AuthedDB:
-        def __init__(self, db, token):
-            self.db = db
-            self.token = token
-        def child(self, path):
-            return AuthedDB(self.db.child(path), self.token)
-        def set(self, data, *args, **kwargs):
-            return self.db.set(data, self.token, *args, **kwargs)
-        def get(self, *args, **kwargs):
-            return self.db.get(self.token, *args, **kwargs)
-        def push(self, data, *args, **kwargs):
-            return self.db.push(data, self.token, *args, **kwargs)
-        def update(self, data, *args, **kwargs):
-            return self.db.update(data, self.token, *args, **kwargs)
-        def remove(self, *args, **kwargs):
-            return self.db.remove(self.token, *args, **kwargs)
-    db = AuthedDB(base_db, idToken)
-    db_path = Config.BOT_DB_PATH.rstrip("/")
-    _format = {"ID": "0", "timestamp": math.floor(time.time())}
-    try:
-        result = db.child(f"{db_path}/users/0").set(_format)
-        logger.info("Data written successfully. Result:", result)
-    except Exception as e:
-        logger.error("Error writing data to Firebase:", e)
-    def token_refresher():
-        global db, user
-        while True:
-            time.sleep(3000)
-            try:
-                new_user = auth.refresh(user["refreshToken"])
-                new_idToken = new_user["idToken"]
-                db.token = new_idToken
-                user = new_user
-                logger.info("Firebase idToken refreshed successfully.")
-            except Exception as e:
-                logger.error("Error refreshing Firebase idToken:", e)
-    token_thread = threading.Thread(target=token_refresher, daemon=True)
-    token_thread.start()
-else:
-    logger.warning("Firebase disabled. Some admin/stat commands may not work.")
+# Firebase отключена — бот работает без неё.
+logger.info("Firebase disabled. Running without Firebase.")
+idToken = None
 
 ################################################################################################
 
